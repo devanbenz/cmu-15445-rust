@@ -1,8 +1,13 @@
+use std::any::TypeId;
 use std::marker::PhantomData;
 use std::hash::Hash;
 use std::fmt::Debug;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use crate::common::hash_util::{HashT, Value};
 
 const BITSET_CAPACITY: usize = 64; // Assuming a 64-bit capacity; adjust as needed.
+const HLL_CONSTANT: f64 = 0.79402; // Constant for HLL
 
 pub struct HyperLogLog<KeyType> {
     cardinality: u64,
@@ -43,13 +48,17 @@ where
     pub fn get_cardinality(&self) -> u64 {
         self.cardinality
     }
+
+    fn calculate_hash(val: KeyType) -> HashT {
+        let type_id = TypeId::from(val);
+        let value_obj = Value::from();
+    }
 }
 
 // Explicitly instantiate the struct for i64 and String types
 // In Rust, this is not necessary unless using dynamic dispatch or trait objects.
 
-use std::sync::{Arc, Mutex};
-use std::thread;
+
 
 #[cfg(test)]
 mod tests {
