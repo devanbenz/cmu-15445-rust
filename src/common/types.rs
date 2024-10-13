@@ -1,3 +1,6 @@
+/// We do a little bit of macros~~
+/// This is effectively building a From trait for every single Value.
+/// Needs to be used to convert bespoke rust types to our custom types.
 macro_rules! impl_from_value {
     ($t:ty, $var:ident, $type_id:expr) => {
         impl From<$t> for Value {
@@ -11,7 +14,18 @@ macro_rules! impl_from_value {
     };
 }
 
+impl_from_value!(i8, Int8, TypeId::TinyInt);
+impl_from_value!(i16, Int16, TypeId::SmallInt);
+impl_from_value!(i32, Int32, TypeId::Integer);
+impl_from_value!(i64, Int64, TypeId::BigInt);
+impl_from_value!(bool, Bool, TypeId::Boolean);
+impl_from_value!(f64, Double, TypeId::Decimal);
+impl_from_value!(String, Varchar, TypeId::Varchar);
+impl_from_value!(u64, UInt64, TypeId::BigInt);
 
+/// TypeId is a generic type identifier for our DBMS.
+/// Rust offers its own internal representation of types
+/// so this will be used a way to map to DBMS types.
 pub(crate) enum TypeId {
     TinyInt,
     SmallInt,
@@ -23,11 +37,7 @@ pub(crate) enum TypeId {
     Timestamp,
 }
 
-pub struct Value {
-    type_id: TypeId,
-    data: ValueData,
-}
-
+/// ValueData will be the internal representation of a Rust primitive type.
 pub(crate) enum ValueData {
     Int8(i8),
     Int16(i16),
@@ -39,14 +49,13 @@ pub(crate) enum ValueData {
     UInt64(u64),
 }
 
-impl_from_value!(i8, Int8, TypeId::TinyInt);
-impl_from_value!(i16, Int16, TypeId::SmallInt);
-impl_from_value!(i32, Int32, TypeId::Integer);
-impl_from_value!(i64, Int64, TypeId::BigInt);
-impl_from_value!(bool, Bool, TypeId::Boolean);
-impl_from_value!(f64, Double, TypeId::Decimal);
-impl_from_value!(String, Varchar, TypeId::Varchar);
-impl_from_value!(u64, UInt64, TypeId::BigInt);
+/// Value is a wrapper for our actual data and mapped to a TypeId as indicated
+/// in [TypeId], this is the 'date wrapper' for this.
+pub struct Value {
+    type_id: TypeId,
+    data: ValueData,
+}
+
 
 impl Value {
     pub(crate) fn new(type_id: TypeId, data: ValueData) -> Self {
