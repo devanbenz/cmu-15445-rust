@@ -1,18 +1,63 @@
-use std::any::TypeId;
 use std::marker::PhantomData;
 use std::hash::Hash;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use fixedbitset::FixedBitSet;
 use crate::common::hash_util::{hash_value, HashT};
 use crate::common::types::Value;
 
-const BITSET_CAPACITY: usize = 64; // Assuming a 64-bit capacity; adjust as needed.
-const HLL_CONSTANT: f64 = 0.79402; // Constant for HLL
+const BITSET_CAPACITY: usize = 64;
 
+/// The HLL constant is just a correction value that was
+/// found in the following paper: https://algo.inria.fr/flajolet/Publications/FlFuGaMe07.pdf
+const HLL_CONSTANT: f64 = 0.79402;
+
+/// HyperLogLog is an algorithm used for tracking unique values
+/// in a data stream also known as the cardinality of data. This is
+/// done without storing the data in memory so it's able to track
+/// the cardinality of very large data sets and use little to no
+/// space to do so.
+///
+/// Description of HLL algorithm
+/// Given the following inputs:
+/// - b - Number of initial bits in a binary representation of a hash value
+/// - m - number of registers (or also called buckets) - can be considered as a memory block.
+/// They are equal to 2^b. (The terms "buckets" and "registers" can be used interchangeably
+/// when discussing HyperLogLog and tasks).
+/// - p - leftmost position of 1 (MSBs position of 1)
+///
+/// So lets say given b = 3, m will then equal 2^3 so m = 8. We have 8 buckets.
+/// Given the following hash(val) = 1011 0010 0000 0000 0000 0000 0000 0000 1000 0000 0000
+///
+/// 101 1 0010 0000 0000 0000 0000 0000 0000 1000 0000 0000
+/// ^   ---------------------------------------------------
+/// |________________________________           |
+/// We reserve the first 3 bits ----|          |
+///                                           |
+/// We initialize 2^3 registers              |
+/// { 0, 0, 0, 0, 0, 0, 0, 0 }              |
+///                                        V
+/// 1 0010 0000 0000 0000 0000 0000 0000 1000 0000 0000
+/// ^
+/// |_______________________________________________
+/// Now we need to find the LMB (Left most bit) ---/
+///
+/// Our left most bit is 1; we get p as the index for 101 (first b(3) bits)
+/// p = 5, so we will set register[p] = 1 so register[5] = 1.
+///
+/// Our new register set is:
+/// { 0, 0, 0, 0, 1, 0, 0, 0 }
+///
+/// So for this hash we have the following
+///  m = 8; p = 5; b = 3
+///
+/// The HLL computation step is as follows with the data gathered:
+/// HLL = 0.79402*8*(8 / val = for (int i = 0; i < 8; i++) { 1/2^register[i] }))
 pub struct HyperLogLog<KeyType> {
     cardinality: u64,
     n_bits: i16,
+    registers: Vec<u8>,
     _marker: PhantomData<KeyType>, // Need to mark T as generic types
 }
 
@@ -21,21 +66,19 @@ where
     KeyType: Hash + Eq + Clone + Debug, Value: From<KeyType>
 {
     pub fn new(n_bits: i16) -> Self {
+        let b = (2_u32.pow(n_bits as u32)) as usize;
+        let mut registers = Vec::with_capacity(b);
+        registers.fill(0);
         HyperLogLog {
             cardinality: 0,
             n_bits,
+            registers,
             _marker: PhantomData,
         }
     }
 
-    pub fn compute_binary(&self, hash: u64) -> u64 {
-        todo!()
-    }
-
-    pub fn position_of_leftmost_one(&self, bset: u64) -> u64 {
-        todo!()
-    }
-
+    /// add_elem will sum the hashes to an ongoing number. In this case
+    /// we will use the cardinality field.
     pub fn add_elem(&mut self, val: KeyType) {
         let hash = Self::calculate_hash(val);
         todo!()
@@ -49,6 +92,15 @@ where
         self.cardinality
     }
 
+    fn compute_binary(&self, hash: HashT) -> FixedBitSet {
+        let b = vec![hash];
+        FixedBitSet::with_capacity_and_blocks(64, b)
+    }
+
+    fn position_of_leftmost_one(&self, bset: FixedBitSet) -> u64 {
+        todo!()
+    }
+
     fn calculate_hash(val: KeyType) -> HashT {
         let value_obj = Value::from(val);
         hash_value(&value_obj)
@@ -58,7 +110,19 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*; // Import everything from the parent module where HyperLogLog is defined.
+    use super::*;
+
+    #[test]
+    fn test_scratch() {
+        let mut obj = HyperLogLog::<String>::new(1);
+        assert_eq!(obj.get_cardinality(), 0);
+        obj.add_elem("Welcome to CMU DB (15-445/645)".to_string());
+
+        obj.compute_cardinality();
+
+        let ans = obj.get_cardinality();
+        assert_eq!(ans, 2);
+    }
 
     #[test]
     fn basic_test1() {
