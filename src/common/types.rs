@@ -1,13 +1,11 @@
-macro_rules! impl_from_value_data_type_id {
+macro_rules! impl_from_value {
     ($t:ty, $var:ident, $type_id:expr) => {
-        pub(crate) impl From<$t> for ValueData {
+        impl From<$t> for Value {
             fn from(value: $t) -> Self {
-                ValueData::$var(value)
-            }
-        }
-        pub(crate) impl From<$t> for TypeId {
-            fn from(value: $t) -> Self {
-                TypeId::$type_id
+                Self {
+                    data: ValueData::$var(value),
+                    type_id: $type_id
+                }
             }
         }
     };
@@ -25,7 +23,7 @@ pub(crate) enum TypeId {
     Timestamp,
 }
 
-pub(crate) struct Value {
+pub struct Value {
     type_id: TypeId,
     data: ValueData,
 }
@@ -41,7 +39,14 @@ pub(crate) enum ValueData {
     UInt64(u64),
 }
 
-impl_from_value_data_type_id!(i8, Int8, TinyInt);
+impl_from_value!(i8, Int8, TypeId::TinyInt);
+impl_from_value!(i16, Int16, TypeId::SmallInt);
+impl_from_value!(i32, Int32, TypeId::Integer);
+impl_from_value!(i64, Int64, TypeId::BigInt);
+impl_from_value!(bool, Bool, TypeId::Boolean);
+impl_from_value!(f64, Double, TypeId::Decimal);
+impl_from_value!(String, Varchar, TypeId::Varchar);
+impl_from_value!(u64, UInt64, TypeId::BigInt);
 
 impl Value {
     pub(crate) fn new(type_id: TypeId, data: ValueData) -> Self {

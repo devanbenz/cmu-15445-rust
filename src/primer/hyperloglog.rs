@@ -4,7 +4,8 @@ use std::hash::Hash;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use crate::common::hash_util::{HashT, Value};
+use crate::common::hash_util::{hash_value, HashT};
+use crate::common::types::Value;
 
 const BITSET_CAPACITY: usize = 64; // Assuming a 64-bit capacity; adjust as needed.
 const HLL_CONSTANT: f64 = 0.79402; // Constant for HLL
@@ -12,12 +13,12 @@ const HLL_CONSTANT: f64 = 0.79402; // Constant for HLL
 pub struct HyperLogLog<KeyType> {
     cardinality: u64,
     n_bits: i16,
-    _marker: PhantomData<KeyType>, // To mimic the template behavior
+    _marker: PhantomData<KeyType>, // Need to mark T as generic types
 }
 
 impl<KeyType> HyperLogLog<KeyType>
 where
-    KeyType: Hash + Eq + Clone + Debug,
+    KeyType: Hash + Eq + Clone + Debug, Value: From<KeyType>
 {
     pub fn new(n_bits: i16) -> Self {
         HyperLogLog {
@@ -28,21 +29,20 @@ where
     }
 
     pub fn compute_binary(&self, hash: u64) -> u64 {
-        /** @TODO(student) Implement this function! */
-        0
+        todo!()
     }
 
     pub fn position_of_leftmost_one(&self, bset: u64) -> u64 {
-        /** @TODO(student) Implement this function! */
-        0
+        todo!()
     }
 
     pub fn add_elem(&mut self, val: KeyType) {
-        /** @TODO(student) Implement this function! */
+        let hash = Self::calculate_hash(val);
+        todo!()
     }
 
     pub fn compute_cardinality(&mut self) {
-        /** @TODO(student) Implement this function! */
+        todo!()
     }
 
     pub fn get_cardinality(&self) -> u64 {
@@ -50,14 +50,10 @@ where
     }
 
     fn calculate_hash(val: KeyType) -> HashT {
-        let type_id = TypeId::from(val);
-        let value_obj = Value::from();
+        let value_obj = Value::from(val);
+        hash_value(&value_obj)
     }
 }
-
-// Explicitly instantiate the struct for i64 and String types
-// In Rust, this is not necessary unless using dynamic dispatch or trait objects.
-
 
 
 #[cfg(test)]
