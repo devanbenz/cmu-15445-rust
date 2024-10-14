@@ -1,6 +1,8 @@
+use std::cmp::max;
 use std::marker::PhantomData;
 use std::hash::Hash;
 use std::fmt::Debug;
+use std::ops::{BitOr, BitXor};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use fixedbitset::FixedBitSet;
@@ -68,7 +70,7 @@ where
     pub fn new(n_bits: i16) -> Self {
         let b = (2_u32.pow(n_bits as u32)) as usize;
         let mut registers = Vec::with_capacity(b);
-        registers.fill(0);
+        registers.resize(b, 0);
         HyperLogLog {
             cardinality: 0,
             n_bits,
@@ -80,11 +82,29 @@ where
     /// add_elem will sum the hashes to an ongoing number. In this case
     /// we will use the cardinality field.
     pub fn add_elem(&mut self, val: KeyType) {
+        // Need to call reverse bits in order to make sure it is comparable
+        // to compute_binary(). This may have to do with architecture?
         let hash = Self::calculate_hash(val);
-        todo!()
+        let register_index = (hash >> (64 - self.n_bits));
+
+        println!("{:b}", hash);
+        println!("{:b}", register_index);
+        println!("{:b}", hash.bit(register_index << 64 - self.n_bits));
+
+        let lmb = self.position_of_leftmost_one(hash);
+
+        self.registers[register_index] = max(self.registers[register_index], lmb as u8);
     }
 
+    /// HLL = 0.79402*8*(8 / val = for (int i = 0; i < 8; i++) { 1/2^register[i] }))
     pub fn compute_cardinality(&mut self) {
+        let mut sum = 0;
+        for i in self.registers.clone() {
+            sum += (1 / (2_u32.pow(i as u32)))
+        }
+        let hll = HLL_CONSTANT * self.registers.clone().len() as f64 * (self.registers.clone().len() as u32 / sum) as f64;
+        println!("{hll}");
+
         todo!()
     }
 
@@ -97,7 +117,13 @@ where
         FixedBitSet::with_capacity_and_blocks(64, b)
     }
 
-    fn position_of_leftmost_one(&self, bset: FixedBitSet) -> u64 {
+    fn position_of_leftmost_one(&self, hash: HashT) -> usize {
+        // for i in hash.count_ones() {
+        //     if i > self.n_bits as usize {
+        //         return i;
+        //     }
+        // }
+        // There should always be 1's
         todo!()
     }
 
@@ -114,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_scratch() {
-        let mut obj = HyperLogLog::<String>::new(1);
+        let mut obj = HyperLogLog::<String>::new(5);
         assert_eq!(obj.get_cardinality(), 0);
         obj.add_elem("Welcome to CMU DB (15-445/645)".to_string());
 
