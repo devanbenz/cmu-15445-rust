@@ -26,6 +26,7 @@ impl_from_value!(u64, UInt64, TypeId::BigInt);
 /// TypeId is a generic type identifier for our DBMS.
 /// Rust offers its own internal representation of types
 /// so this will be used a way to map to DBMS types.
+#[derive(Debug)]
 pub(crate) enum TypeId {
     TinyInt,
     SmallInt,
@@ -38,6 +39,7 @@ pub(crate) enum TypeId {
 }
 
 /// ValueData will be the internal representation of a Rust primitive type.
+#[derive(Debug)]
 pub(crate) enum ValueData {
     Int8(i8),
     Int16(i16),
@@ -51,6 +53,7 @@ pub(crate) enum ValueData {
 
 /// Value is a wrapper for our actual data and mapped to a TypeId as indicated
 /// in [TypeId], this is the 'date wrapper' for this.
+#[derive(Debug)]
 pub struct Value {
     type_id: TypeId,
     data: ValueData,

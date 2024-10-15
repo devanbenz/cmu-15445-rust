@@ -2,10 +2,12 @@ use std::cmp::max;
 use std::marker::PhantomData;
 use std::hash::Hash;
 use std::fmt::Debug;
-use std::ops::{BitOr, BitXor};
+use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use fixedbitset::FixedBitSet;
+use bitvec::order::Msb0;
+use bitvec::slice::BitSlice;
+use bitvec::vec::BitVec;
 use crate::common::hash_util::{hash_value, HashT};
 use crate::common::types::Value;
 
@@ -79,52 +81,52 @@ where
         }
     }
 
-    /// add_elem will sum the hashes to an ongoing number. In this case
-    /// we will use the cardinality field.
     pub fn add_elem(&mut self, val: KeyType) {
-        // Need to call reverse bits in order to make sure it is comparable
-        // to compute_binary(). This may have to do with architecture?
         let hash = Self::calculate_hash(val);
-        let register_index = (hash >> (64 - self.n_bits));
+        let hash_bits = Self::compute_binary(hash);
 
-        println!("{:b}", hash);
-        println!("{:b}", register_index);
-        println!("{:b}", hash.bit(register_index << 64 - self.n_bits));
+        let (head, tail) = hash_bits.split_at(self.n_bits as usize);
 
-        let lmb = self.position_of_leftmost_one(hash);
+        let register_index = Self::bitslice_to_integer(head) as usize;
+        let lmb = Self::position_of_leftmost_one(tail);
 
         self.registers[register_index] = max(self.registers[register_index], lmb as u8);
     }
 
-    /// HLL = 0.79402*8*(8 / val = for (int i = 0; i < 8; i++) { 1/2^register[i] }))
     pub fn compute_cardinality(&mut self) {
-        let mut sum = 0;
-        for i in self.registers.clone() {
-            sum += (1 / (2_u32.pow(i as u32)))
-        }
-        let hll = HLL_CONSTANT * self.registers.clone().len() as f64 * (self.registers.clone().len() as u32 / sum) as f64;
-        println!("{hll}");
+        let mut sum = 0.0;
+        let m = self.registers.len() as f64;
 
-        todo!()
+        for &register_value in &self.registers {
+            sum += 1.0 / (2.0_f64.powi(register_value as i32));
+        }
+
+        let hll_estimate = HLL_CONSTANT * m * m / sum;
+
+        self.cardinality = hll_estimate as u64;
     }
 
     pub fn get_cardinality(&self) -> u64 {
         self.cardinality
     }
 
-    fn compute_binary(&self, hash: HashT) -> FixedBitSet {
-        let b = vec![hash];
-        FixedBitSet::with_capacity_and_blocks(64, b)
+    fn compute_binary(hash: HashT) -> BitVec {
+        BitVec::from_element(hash)
     }
 
-    fn position_of_leftmost_one(&self, hash: HashT) -> usize {
-        // for i in hash.count_ones() {
-        //     if i > self.n_bits as usize {
-        //         return i;
-        //     }
-        // }
-        // There should always be 1's
-        todo!()
+    fn position_of_leftmost_one(bit_slice: &BitSlice) -> usize {
+        if let Some(first_one) = bit_slice.first_one() {
+            first_one
+        } else {
+            // There should always be at least a single 1
+            unreachable!()
+        }
+    }
+
+    fn bitslice_to_integer(slice: &BitSlice) -> u64 {
+        slice.iter()
+            .by_vals()
+            .fold(0, |acc, bit| (acc << 1) | (bit as u64))
     }
 
     fn calculate_hash(val: KeyType) -> HashT {
@@ -140,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_scratch() {
-        let mut obj = HyperLogLog::<String>::new(5);
+        let mut obj = HyperLogLog::<String>::new(1);
         assert_eq!(obj.get_cardinality(), 0);
         obj.add_elem("Welcome to CMU DB (15-445/645)".to_string());
 
