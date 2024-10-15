@@ -89,7 +89,6 @@ where
 
         let register_index = Self::bitslice_to_integer(head) as usize;
         let lmb = Self::position_of_leftmost_one(tail);
-
         self.registers[register_index] = max(self.registers[register_index], lmb as u8);
     }
 
@@ -101,7 +100,7 @@ where
             sum += 1.0 / (2.0_f64.powi(register_value as i32));
         }
 
-        let hll_estimate = HLL_CONSTANT * m * m / sum;
+        let hll_estimate = HLL_CONSTANT * m * (m / sum);
 
         self.cardinality = hll_estimate as u64;
     }

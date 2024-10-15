@@ -1,6 +1,7 @@
+use std::hash::Hasher;
 use std::mem;
-use std::ops::BitXor;
-use std::str::from_utf8;
+use sha2::{Digest, Sha256};
+use twox_hash::XxHash;
 use crate::common::types::{TypeId, Value};
 
 pub type HashT = usize;
@@ -8,11 +9,9 @@ pub type HashT = usize;
 pub const PRIME_FACTOR: HashT = 10000019;
 
 fn hash_bytes(bytes: &[u8]) -> HashT {
-    let mut hash = bytes.len();
-    for &byte in bytes {
-        hash = ((hash << 5).bitxor(hash >> 27)).bitxor(byte as usize);
-    }
-    hash
+    let mut hasher = XxHash::with_seed(0);
+    hasher.write(bytes);
+    hasher.finish() as usize
 }
 
 fn combine_hashes(l: HashT, r: HashT) -> HashT {
